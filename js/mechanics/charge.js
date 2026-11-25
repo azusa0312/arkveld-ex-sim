@@ -102,25 +102,25 @@ const RATTLE_B = { MT: [2, -6], ST: [2, 0], D1: [2, -12], D2: [2, 6], H1: [18, 0
 function rattle(next) {
   placeBoss(0, -16, 180);
   setArmUp(null);
-  setCast('鎖哭龍閃', '腳下黃圈 ×2 → 王前方的直線一格一格往前推', 3);
+  setCast('鎖哭龍閃', '腳下黃圈 ×2 → 王前方的直線一格一格往前推', 5);
   advice = '散開放兩次黃圈（放完就走）；直線推過來時，等前一格打完就走進去。';
   const b0 = { ...bossSt };
   const L = (uv) => local(uv[0], uv[1], b0);
   setPlan((m) => L(RATTLE_A[m.id]));
   const t0 = t;
-  puddles(t0 + 3, 1.2, '黃圈（第一次）');
-  at(t0 + 3.05, () => state === 'running' && setPlan((m) => L(RATTLE_B[m.id]), 0.1));
-  puddles(t0 + 5.4, 1.2, '黃圈（第二次）');
+  puddles(t0 + 5, 1.2, '黃圈（第一次）');
+  at(t0 + 5.05, () => state === 'running' && setPlan((m) => L(RATTLE_B[m.id]), 0.1));
+  puddles(t0 + 7.4, 1.2, '黃圈（第二次）');
   // 直線：每 1.1 秒往前 4 公尺，厚 4 公尺，橫跨整個場地
   const F = dirOf(180);
   let lastU = null;
   // 第二次放圈後：沿自己那一條（v 不變）走到 u = 5 等；之後永遠站在「剛打完的那一格」
-  at(t0 + 5.45, () => {
+  at(t0 + 7.45, () => {
     if (state !== 'running') return;
     setPlan((m) => L([lastU === null ? 5 : lastU, RATTLE_B[m.id][1]]), 0.1);
   });
   const N = 8,
-    start = t0 + 7.8;
+    start = t0 + 9.8;
   for (let k = 0; k < N; k++) {
     const u = 2 + 4 * k;
     const o = local(u, -25, b0);
