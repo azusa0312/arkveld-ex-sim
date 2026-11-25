@@ -121,25 +121,26 @@ function ouroblade(next) {
   });
 }
 
-/* ---------- 甩尾突刺：尾巴方向的直線，站到王的正面 ---------- */
+/* ---------- 甩尾突刺：王背後的扇形，站到王的正面 ---------- */
+const TAIL_HALF = 65,
+  TAIL_LEN = 26;
 function steeltail(next) {
   bossHome();
-  const face = pick([90, 270]); // 王轉身面向東或西
-  placeBoss(HOME.x, HOME.z, face);
-  const back = dirOf(face + 180);
-  setCast('甩尾突刺', `王轉向${where(posAt(face, 12))}，尾巴朝${where(posAt(face + 180, 12))}`, 4);
-  advice = '不要站在尾巴那一側的直線上，到王的正面或側邊。';
-  const w = omen(lineMesh(bPos(), back, 30, 4.5, 0xff5a3a, 0.35), 4.1);
+  const back = (bossSt.face + 180) % 360;
+  setCast('甩尾突刺', `王舉起尾巴 → 打王背後（${where(posAt(back, 12))}側）的扇形`, 4);
+  advice = '不要站在王的背後或尾巴附近，繞到王的正面。';
+  const w = omen(coneMesh(bPos(), back, TAIL_HALF, TAIL_LEN, 0xff5a3a, 0.35), 4.1);
+  bossParts.tail.rotation.x = -0.5; // 尾巴舉起
   const ids = ROLE_IDS;
-  setPlan((m) => local(4 + (ids.indexOf(m.id) % 4) * 2.2, ids.indexOf(m.id) < 4 ? -4 : 4));
+  setPlan((m) => local(4 + (ids.indexOf(m.id) % 4) * 2.2, ids.indexOf(m.id) < 4 ? -3 : 3));
   at(t + 4, () => {
     if (state !== 'running') return;
     removeFx(w);
-    strongFlash(lineMesh(bPos(), back, 30, 4.5, 0xff5a3a, 0.55));
+    bossParts.tail.rotation.x = 0;
+    strongFlash(coneMesh(bPos(), back, TAIL_HALF, TAIL_LEN, 0xff5a3a, 0.55));
     const ok = judge('甩尾突刺', (m) =>
-      inLine(m, bPos(), back, 30, 4.5) ? `${who(m)} 站在王的尾巴後方（${where(m)}）：甩尾突刺打尾巴方向的直線。` : '',
+      inCone(m, bPos(), back, TAIL_HALF, TAIL_LEN) ? `${who(m)} 站在王的背後（${where(m)}）：甩尾突刺打王背後的扇形，要到王的正面。` : '',
     );
-    placeBoss(HOME.x, HOME.z, 180);
     if (ok) next();
   });
 }

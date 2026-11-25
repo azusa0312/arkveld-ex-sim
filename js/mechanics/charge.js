@@ -208,17 +208,31 @@ function rush(next) {
   });
 }
 
-/* ---------- 鎖哭龍閃・改：十字 → 直線往外推 → 往回推 → 十字 ---------- */
+/* ---------- 鎖哭龍閃・改：十字 → 直線往外推 → 往回推 → 十字，中間夾著鎖刃敲打 ×2 ---------- */
 const WRATH_Q = { MT: [-1, -1], D1: [-1, -1], H1: [1, -1], D2: [1, -1], ST: [-1, 1], D3: [-1, 1], H2: [1, 1], D4: [1, 1] };
 function wrathRattle(next) {
   placeBoss(0, -18, 180);
   setArmUp(null);
-  setCast('鎖哭龍閃・改', '先十字 → 直線往外推到場邊 → 再往回推 → 最後再十字', 4);
-  advice = '十字打完走到正中央，等直線往外、往回推完，再退到斜角躲最後的十字。';
+  setCast('鎖哭龍閃・改', '先十字 → 直線往外推到場邊 → 再往回推 → 最後再十字；中間還有鎖刃敲打 ×2', 4);
+  advice = '十字打完走到正中央；直線推到外圈後，王舉手打半場（先躲舉手側、再換邊）；回中央等直線推回來，最後退到斜角。';
   const ids = ROLE_IDS;
-  const jit = (m) => P((ids.indexOf(m.id) % 2) * 0.5 - 0.25, (ids.indexOf(m.id) < 4 ? -0.3 : 0.3));
+  const jit = (m) => P((ids.indexOf(m.id) % 2) * 0.5 - 0.25, ids.indexOf(m.id) < 4 ? -0.3 : 0.3);
   const quad = (m) => add(P(WRATH_Q[m.id][0] * 4.5, WRATH_Q[m.id][1] * 4.5), jit(m));
-  setPlan(quad);
+  // 鎖刃敲打：舉手側先打
+  const side = variant('blowVar', ['L', 'R']);
+  const s = side === 'R' ? 1 : -1;
+  const R = bRight(),
+    o = bPos();
+  const n1 = { x: R.x * s, z: R.z * s },
+    n2 = { x: -n1.x, z: -n1.z };
+  const sideSpot = (m, n) => add(P(n.x * 3.5, n.z * 3.5), P(0, (ids.indexOf(m.id) - 3.5) * 0.8));
+  let ph = 0;
+  setPlan((m) => {
+    if (ph === 0 || ph === 5) return quad(m);
+    if (ph === 2) return sideSpot(m, n2); // 第一下打舉手側 → 站另一側
+    if (ph === 3) return sideSpot(m, n1);
+    return jit(m);
+  });
   const crossHit = (p) => Math.abs(p.x) < 2.5 || Math.abs(p.z) < 2.5;
   const sqHit = (p, d) =>
     (Math.abs(Math.abs(p.x) - d) < 2 && Math.abs(p.z) < d + 2) || (Math.abs(Math.abs(p.z) - d) < 2 && Math.abs(p.x) < d + 2);
@@ -231,7 +245,7 @@ function wrathRattle(next) {
       [P(-d - 2, d), P(1, 0)],
       [P(-d, -d - 2), P(0, 1)],
       [P(d, -d - 2), P(0, 1)],
-    ].forEach(([o, dd]) => g.add(lineMesh(o, dd, 2 * d + 4, 2, 0xff6a3a, op)));
+    ].forEach(([oo, dd]) => g.add(lineMesh(oo, dd, 2 * d + 4, 2, 0xff6a3a, op)));
     return g;
   };
   const t0 = t;
@@ -246,22 +260,56 @@ function wrathRattle(next) {
     { at: 15.2, d: 4 },
     { at: 16.8, kind: 'x' },
   ];
-  seq.forEach((s, i) => {
-    at(t0 + s.at - 1.4, () => state === 'running' && omen(s.kind ? crossMesh(0.28) : sqMesh(s.d, 0.28), 1.45));
-    at(t0 + s.at, () => {
+  seq.forEach((sq, i) => {
+    at(t0 + sq.at - 1.4, () => state === 'running' && omen(sq.kind ? crossMesh(0.28) : sqMesh(sq.d, 0.28), 1.45));
+    at(t0 + sq.at, () => {
       if (state !== 'running') return;
-      strongFlash(s.kind ? crossMesh(0.55) : sqMesh(s.d, 0.55));
+      strongFlash(sq.kind ? crossMesh(0.55) : sqMesh(sq.d, 0.55));
       const ok = judge('鎖哭龍閃・改', (m) =>
-        (s.kind ? crossHit(m) : sqHit(m, s.d))
-          ? s.kind
+        (sq.kind ? crossHit(m) : sqHit(m, sq.d))
+          ? sq.kind
             ? `${who(m)} 被十字打到（${where(m)}）：十字的時候要站在斜角。`
-            : `${who(m)} 被推動的直線打到（${where(m)}）：第一次十字後走到正中央，直線往回推到最內圈後才退到斜角。`
+            : `${who(m)} 被推動的直線打到（${where(m)}）：第一次十字後走到正中央附近，直線往回推到最內圈後才退到斜角。`
           : '',
       );
       if (!ok) return;
-      if (i === 0) setPlan((m) => jit(m), 0.1);
-      if (i === 7) setPlan(quad, 0.1);
-      if (i === seq.length - 1) next();
+      if (i === 0) ph = 1;
+      if (i === 7) ph = 5;
+      if (i === seq.length - 1) {
+        setArmUp(null);
+        next();
+      }
     });
+  });
+  // 直線推到外圈時：鎖刃敲打 ×2（t0+8.0、t0+10.6）
+  let w1, w2;
+  at(t0 + 5.7, () => {
+    if (state !== 'running') return;
+    setArmUp(side);
+    setCast('鎖刃敲打', `王舉起${side === 'R' ? '右' : '左'}手（${sideName(n1)}側）：先打舉手側，再打另一側`, 2.3);
+    w1 = omen(halfMesh(o, n1, -1, 0xff5a3a, 0.3), 2.4);
+    ph = 2;
+  });
+  at(t0 + 8.0, () => {
+    if (state !== 'running') return;
+    removeFx(w1);
+    strongFlash(halfMesh(o, n1, -1, 0xff5a3a, 0.5));
+    const ok = judge('鎖刃敲打（第一下）', (m) =>
+      inHalf(m, o, n1, -1) ? `${who(m)} 站在舉手的${sideName(n1)}側：第一下打舉手側，要站另一側。` : '',
+    );
+    if (!ok) return;
+    w2 = omen(halfMesh(o, n2, -1, 0xff5a3a, 0.3), 2.7);
+    ph = 3;
+  });
+  at(t0 + 10.6, () => {
+    if (state !== 'running') return;
+    removeFx(w2);
+    strongFlash(halfMesh(o, n2, -1, 0xff5a3a, 0.5));
+    const ok = judge('鎖刃敲打（第二下）', (m) =>
+      inHalf(m, o, n2, -1) ? `${who(m)} 還在${sideName(n2)}側：第一下打完要立刻換邊。` : '',
+    );
+    if (!ok) return;
+    setArmUp(null);
+    ph = 4;
   });
 }
