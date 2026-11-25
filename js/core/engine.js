@@ -93,7 +93,9 @@ function resetWorld() {
   clearFx();
   bossHome();
   bossParts.tail.rotation.y = 0;
+  bossParts.tail.rotation.x = 0;
   siegeFromN = true;
+  pendingCrystals = null;
 }
 
 function start() {

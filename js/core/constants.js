@@ -100,3 +100,8 @@ function inLine(p, o, d, len, hw) {
 }
 // 半場：dot(p - o, n) > c
 const inHalf = (p, o, n, c = 0) => dot(sub(p, o), n) > c;
+// 扇形：頂點 o、朝向角 a（度）、半角 half（度）
+function inCone(p, o, a, half, len = 60) {
+  if (dist(p, o) > len) return false;
+  return angDiff(angOfPt(p, o), a) <= half;
+}
