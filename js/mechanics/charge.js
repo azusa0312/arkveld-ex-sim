@@ -143,69 +143,99 @@ function rattle(next) {
   }
 }
 
-/* ---------- 突進＆龍閃 ×3 ---------- */
+/* ---------- 突進＆龍閃 ×3 ----------
+ * 王連續突進到 3 個落點；每個落點在王衝到後依序擴散 3 次：圓形 → 環形 → 更大的環形（一次比一次大）。
+ * 3 個落點的時間錯開，範圍會交錯，解法是「走進剛炸完的位置」。
+ * 安全路線用 planRoute 在網格上找（每一波都在範圍外、兩波之間走得到），NPC 和提示圈都照這條路線走。 */
+const RUSH_RINGS = [
+  [0, 7], // 第 1 次：圓形
+  [7, 14], // 第 2 次：環形
+  [14, 26], // 第 3 次：更大的環形（一路打到場邊外，影片裡沒有安全的角落）
+];
+const RUSH_GAP = 1.6; // 每次突進、每次擴散的間隔（秒）
 function rush(next) {
   const mir = variant('rushVar', ['A', 'B']) === 'B' ? -1 : 1;
   const S = P(0, -18);
   placeBoss(S.x, S.z, 180);
   setArmUp(null);
   const pts = [P(-7 * mir, 5), P(9 * mir, -8), P(8 * mir, 9)];
-  const wait = P(3 * mir, 15);
-  setCast('突進＆龍閃', '三連突進：每個落點先圓形、之後擴散成環形', 4);
-  advice = `先在第 3 個落點（${where(pts[2])}）旁邊等，第 3 下突進打完就走進它的圓圈裡。`;
-  const tele = [];
+  setCast('突進＆龍閃', '三連突進：每個落點擴散 3 次（圓形 → 環形 → 更大的環形）', 4);
+  advice = '跟著提示走：每一波都走進「剛炸完的位置」，圓炸完就走進圓心，環炸完再往環裡走。';
+  const t0 = t;
+  const T1 = t0 + 4;
+  // 所有判定：突進（路線＋落點圓形由第 1 次擴散代表）與擴散
+  const blasts = []; // { at, test(p, margin), mesh(op), name }
   let from = S;
   pts.forEach((p, i) => {
-    tele.push(omen(circleMesh(p.x, p.z, 6, 0xff5a3a, 0.22), 12));
-    tele.push(omen(floatLabel(String(i + 1), '#ffd0b0', p.x, p.z, 1.2, 1.4), 12));
-    tele.push(omen(lineMesh(from, norm(sub(p, from)), dist(p, from), 3, 0xff5a3a, 0.12), 4 + 1.6 * i + 0.6));
-    from = p;
-  });
-  const ids = ROLE_IDS;
-  const off = (m, r = 1.4) => add(P(0, 0), dirOf(ids.indexOf(m.id) * 45), r);
-  setPlan((m) => add(wait, off(m)));
-  const t0 = t;
-  from = S;
-  pts.forEach((p, i) => {
-    const a = from;
-    at(t0 + 4 + 1.6 * i - 0.5, () => state === 'running' && dashBoss(p.x, p.z, 0.5));
-    at(t0 + 4 + 1.6 * i, () => {
-      if (state !== 'running') return;
-      const d = norm(sub(p, a)),
-        len = dist(p, a);
-      strongFlash(circleMesh(p.x, p.z, 6, 0xff5a3a, 0.55));
-      strongFlash(lineMesh(a, d, len, 3, 0xff5a3a, 0.45));
-      const ok = judge(`突進（第 ${i + 1} 下）`, (m) =>
-        dist(m, p) < 6 || inLine(m, a, d, len, 3)
-          ? `${who(m)} 被第 ${i + 1} 下突進打到（${where(m)}）：在第 3 個落點旁邊等，不要站在路線上。`
-          : '',
-      );
-      if (ok && i === 2) {
-        advice = '第 3 下打完了：走進第 3 個落點的圓圈裡（環形的內側安全）。';
-        setPlan((m) => add(pts[2], off(m, 1.6)), 0.1);
-      }
+    const a = from,
+      d = norm(sub(p, a)),
+      len = dist(p, a);
+    blasts.push({
+      at: T1 + RUSH_GAP * i,
+      test: (q, mg) => inLine(q, a, d, len, 3 + mg),
+      mesh: (op) => lineMesh(a, d, len, 3, 0xff5a3a, op),
+      why: `被第 ${i + 1} 下突進的路線撞到`,
+    });
+    RUSH_RINGS.forEach(([r0, r1], k) => {
+      blasts.push({
+        at: T1 + RUSH_GAP * (i + k),
+        test: (q, mg) => {
+          const dd = dist(q, p);
+          return dd < r1 + mg && dd >= Math.max(0, r0 - mg);
+        },
+        mesh: (op) => (r0 ? ringMesh(p.x, p.z, r0, r1, 0xff5a3a, op) : circleMesh(p.x, p.z, r1, 0xff5a3a, op)),
+        why: `被第 ${i + 1} 個落點的第 ${k + 1} 次擴散（${r0 ? `${r0}～${r1} 公尺的環形` : `半徑 ${r1} 公尺的圓形`}）打到`,
+      });
     });
     from = p;
   });
+  const times = [...new Set(blasts.map((b) => +b.at.toFixed(2)))].sort((x, y) => x - y);
+  const route = planRoute(
+    times.map((tm) => (q) => blasts.some((b) => Math.abs(b.at - tm) < 0.01 && b.test(q, 1.5))),
+    P(0, -5),
+    15,
+    RUSH_GAP * SPEED - 3,
+    pts[2],
+  );
+  // 預兆：落點、編號、路線
+  const tele = [];
+  from = S;
   pts.forEach((p, i) => {
-    at(t0 + 7.3 + 1.2 * i, () => state === 'running' && omen(ringMesh(p.x, p.z, 6, 12, 0xff5a3a, 0.25), 1.25));
-    at(t0 + 8.5 + 1.2 * i, () => {
+    tele.push(omen(circleMesh(p.x, p.z, RUSH_RINGS[0][1], 0xff5a3a, 0.2), 4 + RUSH_GAP * (i + 2) + 0.1));
+    tele.push(omen(floatLabel(String(i + 1), '#ffd0b0', p.x, p.z, 1.2, 1.4), 4 + RUSH_GAP * (i + 2) + 0.1));
+    tele.push(omen(lineMesh(from, norm(sub(p, from)), dist(p, from), 3, 0xff5a3a, 0.12), 4 + RUSH_GAP * i + 0.1));
+    from = p;
+  });
+  // 環形擴散的預兆：打之前 1.2 秒顯示
+  blasts
+    .filter((b) => /擴散/.test(b.why) && !/圓形/.test(b.why))
+    .forEach((b) => at(b.at - 1.2, () => state === 'running' && omen(b.mesh(0.22), 1.25)));
+  // NPC：每一波打完立刻走到下一個點
+  const ids = ROLE_IDS;
+  const jit = (m) => posAt(ids.indexOf(m.id) * 45, 0.7);
+  setPlan((m) => {
+    let k = times.findIndex((tm) => t < tm);
+    if (k < 0) k = times.length - 1;
+    return add(route[k], jit(m));
+  });
+  pts.forEach((p, i) => at(T1 + RUSH_GAP * i - 0.5, () => state === 'running' && dashBoss(p.x, p.z, 0.5)));
+  times.forEach((tm, k) =>
+    at(tm, () => {
       if (state !== 'running') return;
-      strongFlash(ringMesh(p.x, p.z, 6, 12, 0xff5a3a, 0.55));
-      const ok = judge(`龍閃（第 ${i + 1} 個環形）`, (m) => {
-        const d = dist(m, p);
-        return d >= 6 && d < 12
-          ? `${who(m)} 被第 ${i + 1} 個落點的環形打到（${where(m)}）：環形的內圈（原本圓圈的位置）是安全的。`
-          : '';
+      const now = blasts.filter((b) => Math.abs(b.at - tm) < 0.01);
+      now.forEach((b) => strongFlash(b.mesh(0.5)));
+      const ok = judge('突進＆龍閃', (m) => {
+        const b = now.find((b) => b.test(m, 0));
+        return b ? `${who(m)} ${b.why}（${where(m)}）：每一波都要走進剛炸完的位置（圓心、環的內側）。` : '';
       });
       if (!ok) return;
-      if (i === 2) {
+      if (k === times.length - 1) {
         tele.forEach((x) => removeFx(x));
         bossHome();
         next();
       }
-    });
-  });
+    }),
+  );
 }
 
 /* ---------- 鎖哭龍閃・改：十字 → 直線往外推 → 往回推 → 十字，中間夾著鎖刃敲打 ×2 ---------- */
