@@ -224,3 +224,50 @@ function exaflare(title, o, d, n, gap, step, r, startAt, onHit) {
     });
   }
 }
+
+/* ---------- 安全路線：每一波都在範圍外、兩波之間走得到 ----------
+ * hazards[k](p)：第 k 波判定時 p 是否危險（已含邊距）
+ * start：開場大約的位置；firstReach：開場到第一波最多能走多遠；step：兩波之間最多走多遠
+ * prefer：最後想靠近的點（同樣距離時優先）。回傳每一波時要站的位置。 */
+function planRoute(hazards, start, firstReach, step, prefer) {
+  const nodes = [];
+  for (let x = -18; x <= 18; x += 1)
+    for (let z = -18; z <= 18; z += 1) if (Math.hypot(x, z) <= WALK_R - 1) nodes.push(P(x, z));
+  const n = nodes.length;
+  let cost = nodes.map((p) => (dist(p, start) <= firstReach && !hazards[0](p) ? dist(p, start) * 0.3 : Infinity));
+  const back = [];
+  for (let k = 1; k < hazards.length; k++) {
+    const nc = new Array(n).fill(Infinity),
+      from = new Array(n).fill(-1);
+    for (let j = 0; j < n; j++) {
+      if (hazards[k](nodes[j])) continue;
+      for (let i = 0; i < n; i++) {
+        if (cost[i] === Infinity) continue;
+        const d = dist(nodes[i], nodes[j]);
+        if (d > step) continue;
+        if (cost[i] + d < nc[j]) {
+          nc[j] = cost[i] + d;
+          from[j] = i;
+        }
+      }
+    }
+    back.push(from);
+    cost = nc;
+  }
+  let best = -1,
+    bc = Infinity;
+  for (let j = 0; j < n; j++) {
+    const c = cost[j] + (prefer ? dist(nodes[j], prefer) * 0.2 : 0);
+    if (c < bc) {
+      bc = c;
+      best = j;
+    }
+  }
+  if (best < 0) {
+    console.warn('planRoute：找不到安全路線');
+    return hazards.map(() => start);
+  }
+  const path = [best];
+  for (let k = back.length - 1; k >= 0; k--) path.unshift(back[k][path[0]]);
+  return path.map((i) => nodes[i]);
+}
