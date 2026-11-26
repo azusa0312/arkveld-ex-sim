@@ -6,6 +6,8 @@
 /* ---------- 王的位置與朝向 ---------- */
 const bossSt = { x: 0, z: -8, face: 180 };
 const HOME = { x: 0, z: -8 }; // 平常站的位置（北半場，面向南）
+const TARGET_R = 3.4; // 王腳下紅圈（目標圈）的外半徑：模型 4.0 × 縮放 0.85
+const BLOW_OVER = TARGET_R; // 鎖刃敲打會越過中線，一直蓋到另一側紅圈的外緣
 function placeBoss(x, z, face = bossSt.face) {
   Object.assign(bossSt, { x, z, face });
   boss.position.set(x, 0, z);
