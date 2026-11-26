@@ -41,7 +41,8 @@ function forgedFury(next, enrage) {
 
 /* ---------- 鎖刃敲打 ×2：先打舉手那一側半場，再打另一側 ---------- */
 const BLOW_F = { MT: 3.5, ST: 3.5, D1: 5, D2: 6.5, H1: 10, H2: 11, D3: 9, D4: 12 };
-const BLOW_R = { MT: 3, ST: 4.2, D1: 3.6, D2: 3, H1: 3.4, H2: 4.2, D3: 4.2, D4: 3 };
+// 站在紅圈外側（離中線 4.6 公尺以上），兩下之間換邊約 10 公尺
+const BLOW_R = { MT: 4.6, ST: 5.6, D1: 5.2, D2: 4.6, H1: 4.8, H2: 5.6, D3: 5.4, D4: 4.6 };
 function chainBlow(next) {
   bossHome();
   const side = variant('blowVar', ['L', 'R']);
@@ -52,27 +53,27 @@ function chainBlow(next) {
   const n1 = { x: R.x * s, z: R.z * s },
     n2 = { x: -n1.x, z: -n1.z };
   setCast('鎖刃敲打', `王舉起${side === 'R' ? '右' : '左'}手（${sideName(n1)}側）：先打舉手側，再打另一側`, 4);
-  advice = `先站「沒舉手」的${sideName(n2)}側；第一下打完立刻換到${sideName(n1)}側。`;
+  advice = `先站「沒舉手」的${sideName(n2)}側、而且要在王腳下紅圈的外面（範圍會蓋過紅圈）；第一下打完立刻換到${sideName(n1)}側的紅圈外。`;
   const spot = (m, sg) => local(BLOW_F[m.id], sg * BLOW_R[m.id]);
-  const w1 = omen(halfMesh(o, n1, -1, 0xff5a3a, 0.3), 4.1);
+  const w1 = omen(halfMesh(o, n1, -BLOW_OVER, 0xff5a3a, 0.3), 4.1);
   setPlan((m) => spot(m, -s), 0.3);
   at(t + 4, () => {
     if (state !== 'running') return;
     removeFx(w1);
-    strongFlash(halfMesh(o, n1, -1, 0xff5a3a, 0.5));
+    strongFlash(halfMesh(o, n1, -BLOW_OVER, 0xff5a3a, 0.5));
     const ok = judge('鎖刃敲打（第一下）', (m) =>
-      inHalf(m, o, n1, -1) ? `${who(m)} 站在舉手的${sideName(n1)}側：第一下打舉手側，要站另一側。` : '',
+      inHalf(m, o, n1, -BLOW_OVER) ? `${who(m)} 被第一下打到（${where(m)}）：第一下打舉手的${sideName(n1)}側，範圍會越過中線蓋住王腳下的紅圈，要站另一側的紅圈外。` : '',
     );
     if (!ok) return;
-    const w2 = omen(halfMesh(o, n2, -1, 0xff5a3a, 0.3), 2.7);
+    const w2 = omen(halfMesh(o, n2, -BLOW_OVER, 0xff5a3a, 0.3), 2.7);
     advice = `第二下打${sideName(n2)}側：馬上換到${sideName(n1)}側！`;
     setPlan((m) => spot(m, s), 0.15);
     at(t + 2.6, () => {
       if (state !== 'running') return;
       removeFx(w2);
-      strongFlash(halfMesh(o, n2, -1, 0xff5a3a, 0.5));
+      strongFlash(halfMesh(o, n2, -BLOW_OVER, 0xff5a3a, 0.5));
       const ok2 = judge('鎖刃敲打（第二下）', (m) =>
-        inHalf(m, o, n2, -1) ? `${who(m)} 還在${sideName(n2)}側：第一下打完要立刻換邊。` : '',
+        inHalf(m, o, n2, -BLOW_OVER) ? `${who(m)} 被第二下打到（${where(m)}）：第一下打完要立刻換到${sideName(n1)}側，而且要站在紅圈外。` : '',
       );
       setArmUp(null);
       if (ok2) next();

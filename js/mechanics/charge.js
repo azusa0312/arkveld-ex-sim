@@ -225,7 +225,7 @@ function wrathRattle(next) {
     o = bPos();
   const n1 = { x: R.x * s, z: R.z * s },
     n2 = { x: -n1.x, z: -n1.z };
-  const sideSpot = (m, n) => add(P(n.x * 3.5, n.z * 3.5), P(0, (ids.indexOf(m.id) - 3.5) * 0.8));
+  const sideSpot = (m, n) => add(P(n.x * 5, n.z * 5), P(0, (ids.indexOf(m.id) - 3.5) * 0.8)); // 站在紅圈的延伸線外
   let ph = 0;
   setPlan((m) => {
     if (ph === 0 || ph === 5) return quad(m);
@@ -287,26 +287,26 @@ function wrathRattle(next) {
     if (state !== 'running') return;
     setArmUp(side);
     setCast('鎖刃敲打', `王舉起${side === 'R' ? '右' : '左'}手（${sideName(n1)}側）：先打舉手側，再打另一側`, 2.3);
-    w1 = omen(halfMesh(o, n1, -1, 0xff5a3a, 0.3), 2.4);
+    w1 = omen(halfMesh(o, n1, -BLOW_OVER, 0xff5a3a, 0.3), 2.4);
     ph = 2;
   });
   at(t0 + 8.0, () => {
     if (state !== 'running') return;
     removeFx(w1);
-    strongFlash(halfMesh(o, n1, -1, 0xff5a3a, 0.5));
+    strongFlash(halfMesh(o, n1, -BLOW_OVER, 0xff5a3a, 0.5));
     const ok = judge('鎖刃敲打（第一下）', (m) =>
-      inHalf(m, o, n1, -1) ? `${who(m)} 站在舉手的${sideName(n1)}側：第一下打舉手側，要站另一側。` : '',
+      inHalf(m, o, n1, -BLOW_OVER) ? `${who(m)} 被第一下打到（${where(m)}）：第一下打舉手的${sideName(n1)}側，範圍會越過中線約 3.4 公尺，要站遠一點。` : '',
     );
     if (!ok) return;
-    w2 = omen(halfMesh(o, n2, -1, 0xff5a3a, 0.3), 2.7);
+    w2 = omen(halfMesh(o, n2, -BLOW_OVER, 0xff5a3a, 0.3), 2.7);
     ph = 3;
   });
   at(t0 + 10.6, () => {
     if (state !== 'running') return;
     removeFx(w2);
-    strongFlash(halfMesh(o, n2, -1, 0xff5a3a, 0.5));
+    strongFlash(halfMesh(o, n2, -BLOW_OVER, 0xff5a3a, 0.5));
     const ok = judge('鎖刃敲打（第二下）', (m) =>
-      inHalf(m, o, n2, -1) ? `${who(m)} 還在${sideName(n2)}側：第一下打完要立刻換邊。` : '',
+      inHalf(m, o, n2, -BLOW_OVER) ? `${who(m)} 被第二下打到（${where(m)}）：第一下打完要立刻換到${sideName(n1)}側，離中線 3.4 公尺以上。` : '',
     );
     if (!ok) return;
     setArmUp(null);
